@@ -1,3 +1,4 @@
+import sys
 import time
 import zmq
 import random
@@ -7,10 +8,13 @@ import sqlite3
 import os
 
 if os.path.exists('src/db/consumer_queue.db'):
-    print("deleted")
-    os.remove('src/db/consumer_queue.db')
-    os.remove('src/db/consumer_queue.db-wal')
-    os.remove('src/db/consumer_queue.db-shm')
+    try:
+        os.remove('src/db/consumer_queue.db')
+        os.remove('src/db/consumer_queue.db-wal')
+        os.remove('src/db/consumer_queue.db-shm')
+        print("deleted")
+    except Exception as e:
+        print("Problem deleting. Maybe files are not present.")
 
 
 HOST = socket.gethostname()
@@ -53,6 +57,7 @@ def reconnect_target():
 
 def send_thread():
     db_connection = sqlite3.connect("src/db/consumer_queue.db")
+    db_connection.execute("PRAGMA auto_vacuum")
     target_socket = reconnect_target()
     if not target_socket:
         while True:
@@ -69,7 +74,6 @@ def send_thread():
         cursor = db_connection.execute("SELECT * FROM data ORDER BY id DESC LIMIT 2000")
         id_list = []
         for data in cursor:
-            time.sleep(0.001)
             id_list.append((data[0],))
             count += 1
             msg_count += 1
@@ -83,17 +87,23 @@ def send_thread():
                 t1 = time.time()
         db_connection.executemany("DELETE FROM data WHERE id=?", id_list)
         db_connection.commit()
+        db_connection.execute("PRAGMA journal_size_limit=0")
+        db_connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        
 
 
 def consumer():
-    consumer_id = random.randrange(1,10005)
-    print(f"I am consumer #{consumer_id}")
-    t1 = threading.Thread(target=receive_thread)
-    t2 = threading.Thread(target=send_thread)
-    t1.start()
-    t2.start()
-    t1.join()
-    t2.join()
+    try:
+        consumer_id = random.randrange(1,10005)
+        print(f"I am consumer #{consumer_id}")
+        t1 = threading.Thread(target=receive_thread)
+        t2 = threading.Thread(target=send_thread)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+    except KeyboardInterrupt as e:
+        sys.exit()
     
 
 if __name__ == '__main__':
