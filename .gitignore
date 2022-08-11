@@ -2,4 +2,5 @@ venv
 src/db/*
 *.pyc
 __pycache__/
-src/db/consumer_queue.db-*
+src/db/consumer_queue.db-wal
+src/db/consumer_queue.db-shm
