@@ -2,3 +2,4 @@ venv
 src/db/*
 *.pyc
 __pycache__/
+src/db/consumer_queue.db-*
